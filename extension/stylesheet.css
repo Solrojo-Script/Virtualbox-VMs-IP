@@ -1,0 +1,21 @@
+.vbox-ip-tooltip {
+  background-color: #100b1c;
+  color: #e6dff5;
+  border: 2px solid #8758e8;
+  border-radius: 12px;
+  padding: 10px 14px;
+  spacing: 6px;
+}
+
+.vbox-ip-row {
+  spacing: 20px;
+}
+
+.vbox-ip-name {
+  min-width: 120px;
+  font-weight: bold;
+}
+
+.vbox-ip-address {
+  color: #c4b5fd;
+}

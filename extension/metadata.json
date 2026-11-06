@@ -1,0 +1,7 @@
+{
+  "uuid": "virtualbox-ips@solrojo",
+  "name": "Virtualbox IPs",
+  "description": "Muestra las IP de las máquinas virtuales detectadas en la barra superior.",
+  "shell-version": ["46"],
+  "version": 1
+}
