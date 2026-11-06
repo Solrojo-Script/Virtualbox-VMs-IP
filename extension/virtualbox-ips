@@ -111,7 +111,7 @@ def show_panel_list(rows):
     # A scrollable child can otherwise be allocated its minimum height.
     _, table_height, _, _ = grid.measure(Gtk.Orientation.VERTICAL, -1)
     scroll.set_min_content_height(min(table_height, scroll.get_max_content_height()))
-    dialog.add_response('close', 'Cerrar')
+    dialog.add_response('close', 'Close')
     dialog.set_default_response('close')
     dialog.set_close_response('close')
     loop = GLib.MainLoop()
