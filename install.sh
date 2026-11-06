@@ -6,13 +6,13 @@ uuid=virtualbox-ips@solrojo
 destination=${XDG_DATA_HOME:-"$HOME/.local/share"}/gnome-shell/extensions/$uuid
 
 if [ "$(id -u)" -eq 0 ]; then
-    printf '%s\n' 'Ejecuta el instalador con tu usuario de GNOME.' >&2
+    printf '%s\n' 'Run the installer as your regular GNOME user.' >&2
     exit 1
 fi
 
 for command in VBoxManage python3 gnome-extensions; do
     if ! command -v "$command" >/dev/null 2>&1; then
-        printf 'Falta el comando %s. Consulta los requisitos del README.\n' "$command" >&2
+        printf 'Missing command: %s. See the requirements in the README.\n' "$command" >&2
         exit 1
     fi
 done
@@ -28,5 +28,5 @@ install -d "$destination"
 install -m 755 "$source_dir/virtualbox-ips" "$destination/"
 install -m 644 "$source_dir/metadata.json" "$source_dir/stylesheet.css" "$destination/"
 install -m 644 "$source_dir/extension.js" "$destination/"
-printf 'Instalado en %s\n' "$destination"
-printf '%s\n' 'Cierra sesión y vuelve a entrar. Después, activa Virtualbox IPs en Extensiones.'
+printf 'Installed in %s\n' "$destination"
+printf '%s\n' 'Log out and back in, then enable Virtualbox IPs in the Extensions app.'

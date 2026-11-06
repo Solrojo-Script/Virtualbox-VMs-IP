@@ -1,51 +1,51 @@
 # Virtualbox IPs
 
-Extensión para GNOME Shell que muestra las direcciones IP de las máquinas virtuales de VirtualBox en la barra superior. El icono aparece cuando se detecta al menos una dirección.
+A GNOME Shell extension that shows the IP addresses of VirtualBox virtual machines in the top bar. The icon appears when the extension detects at least one address.
 
-- Pasa el cursor por el icono para ver las máquinas y sus IP.
-- Haz clic para abrir **Virtualbox - VMs**. La tabla se ajusta al contenido y cada fila tiene un botón para copiar las direcciones de esa VM.
+- Hover over the icon to see the virtual machines and their IP addresses.
+- Click the icon to open **Virtualbox - VMs**. The table adjusts to its contents, and each row has a button to copy that VM's addresses.
 
-## Requisitos
+## Requirements
 
-- GNOME Shell 46, la versión declarada por la extensión.
-- VirtualBox instalado en el equipo anfitrión, con `VBoxManage` disponible para el usuario de GNOME.
-- Python 3 con PyGObject, GTK 4 y libadwaita. En Zorin OS y Ubuntu los paquetes son `python3-gi`, `gir1.2-gtk-4.0` y `gir1.2-adw-1`.
-- Guest Additions en cada máquina invitada que deba publicar sus IP. El invitado debe tener una interfaz configurada y estar publicando sus propiedades de red.
+- GNOME Shell 46, the version declared by the extension.
+- VirtualBox installed on the host, with `VBoxManage` available to your GNOME user.
+- Python 3 with PyGObject, GTK 4, and libadwaita. On Zorin OS and Ubuntu, the packages are `python3-gi`, `gir1.2-gtk-4.0`, and `gir1.2-adw-1`.
+- Guest Additions in each VM that should report its IP addresses. The guest needs a configured network interface and must publish its network properties.
 
-## Instalación
+## Installation
 
-1. Descarga el repositorio y abre una terminal en su carpeta.
-2. Ejecuta el instalador con tu usuario habitual.
+1. Download or clone this repository and open a terminal in its directory.
+2. Run the installer as your regular user.
 
    ```sh
    ./install.sh
    ```
 
-3. Cierra sesión y vuelve a entrar para que GNOME lea los archivos.
-4. Activa **Virtualbox IPs** desde **Extensiones** o ejecuta lo siguiente.
+3. Log out and back in so GNOME loads the extension files.
+4. Enable **Virtualbox IPs** in the **Extensions** app, or run:
 
    ```sh
    gnome-extensions enable virtualbox-ips@solrojo
    ```
 
-5. Inicia una VM. La extensión consulta VirtualBox al activarse y después cada diez segundos.
+5. Start a VM. The extension checks VirtualBox when enabled and every ten seconds after that.
 
-Para actualizar, ejecuta de nuevo el instalador y vuelve a iniciar sesión.
+To update, run the installer again and log out and back in.
 
-## Si el indicador no aparece
+## Troubleshooting
 
-Ejecuta estas consultas desde la sesión donde tienes abierto VirtualBox.
+If the indicator does not appear, run these commands from the same user session where VirtualBox is running:
 
 ```sh
 VBoxManage list runningvms
 "${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/virtualbox-ips@solrojo/virtualbox-ips"
 ```
 
-Si una VM aparece como encendida pero sin IP publicada, comprueba la configuración de red y el servicio de Guest Additions dentro del invitado. El indicador solo aparece si la consulta devuelve alguna IP.
+If VirtualBox lists a running VM but the helper reports no IP address, check the network configuration and the Guest Additions service inside the guest. The indicator appears as soon as the helper finds an address.
 
-## Desinstalación
+## Uninstallation
 
-Desactiva la extensión y elimina la carpeta instalada.
+Disable the extension and remove its installation directory.
 
 ```sh
 gnome-extensions disable virtualbox-ips@solrojo
