@@ -1,0 +1,4 @@
+/* The copied state lasts 1.5 seconds; all other styling follows the GTK theme. */
+.vbox-ip-copy.copied image {
+  color: #57e389;
+}

@@ -1,175 +1,67 @@
 #!/usr/bin/env python3
-"""Show the network addresses reported by running VirtualBox guests."""
+"""List IPs belonging to connected VirtualBox VM adapters, excluding Docker bridges.
+
+The network model is independent of GTK. The Shell extension uses --adapter-json;
+--json remains available for older copies already loaded into GNOME Shell.
+"""
 import argparse
-import ipaddress
 import json
-import os
-import re
-import subprocess
-import xml.etree.ElementTree as ET
-from pathlib import Path
+import sys
 
-MACHINE = re.compile(r'^[ \t]*"(.*)"[ \t]+\{([0-9a-fA-F-]+)\}[ \t]*$', re.MULTILINE)
-ADDRESS = re.compile(
-    r'^Name: /VirtualBox/GuestInfo/Net/\d+/V[46]/IP(?:/\d+)?, value: ([^,\r\n]+)',
-    re.MULTILINE,
-)
+from vbox_network import collect_snapshot, legacy_rows, rows_from_payload
 
 
-def vbox(*args):
-    return subprocess.run(
-        ['VBoxManage', *args], capture_output=True, text=True, timeout=12, check=True,
-        env={**os.environ, 'LC_ALL': 'C'},
-    ).stdout
+def panel_snapshot(payload):
+    """Accept current rows, or refresh a legacy two-column panel snapshot.
+
+    Old Shell code can remain loaded until logout. Its VM/IP pairs lack the MAC
+    and adapter information needed to filter Docker, so never trust or relabel
+    those pairs: obtain a fresh, MAC-matched snapshot instead.
+    """
+    if isinstance(payload, list) and payload and isinstance(payload[0], list):
+        if not all(isinstance(item, list) and len(item) == 2
+                   and all(isinstance(value, str) for value in item) for item in payload):
+            raise ValueError('Invalid legacy panel snapshot.')
+        snapshot = collect_snapshot()
+        return list(snapshot.rows), '\n'.join(snapshot.warnings)
+    return rows_from_payload(payload), ''
 
 
-def format_addresses(raw_addresses):
-    values = []
-    for value in raw_addresses:
-        try:
-            address = ipaddress.ip_address(value.strip())
-        except ValueError:
-            continue
-        if not (address.is_loopback or address.is_unspecified) and str(address) not in values:
-            values.append(str(address))
-    return ', '.join(values)
-
-
-def addresses(machine_id):
-    properties = vbox('guestproperty', 'enumerate', machine_id, '--old-format')
-    return format_addresses(ADDRESS.findall(properties))
-
-
-def recorded_running_guests():
-    config_root = Path(os.environ.get(
-        'VBOX_USER_HOME', Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'VirtualBox'
-    ))
-    try:
-        registry = ET.parse(config_root / 'VirtualBox.xml')
-    except (OSError, ET.ParseError):
-        return []
-
-    rows = []
-    for entry in registry.findall('.//{*}MachineEntry'):
-        vm_file = config_root / entry.get('src', '')
-        try:
-            with (vm_file.parent / 'Logs' / 'VBox.log').open('rb') as log:
-                log.seek(max(0, log.seek(0, os.SEEK_END) - 262144))
-                states = re.findall(rb"Console: Machine state changed to '([^']+)'", log.read())
-            if not states or states[-1] not in (b'Running', b'Paused'):
-                continue
-            machine = ET.parse(vm_file).find('.//{*}Machine')
-        except (OSError, ET.ParseError):
-            continue
-        if machine is None:
-            continue
-        ips = format_addresses(
-            prop.get('value', '') for prop in machine.findall('.//{*}GuestProperty')
-            if re.fullmatch(r'/VirtualBox/GuestInfo/Net/\d+/V[46]/IP(?:/\d+)?', prop.get('name', ''))
-        )
-        label = f'{ips} (guardada, sin confirmar)' if ips else 'Sin IP guardada'
-        rows.append((machine.get('name', vm_file.stem), label))
-    return rows
-
-
-def show(kind, message):
-    subprocess.run(['zenity', kind, '--title=VirtualBox · IP de las VM', '--text', message])
-
-
-def show_panel_list(rows):
-    import gi
-
-    gi.require_version('Gtk', '4.0')
-    gi.require_version('Adw', '1')
-    from gi.repository import Adw, GLib, Gtk
-
-    Adw.init()
-    grid = Gtk.Grid(column_spacing=18, row_spacing=6)
-    for row, cells in enumerate([('VM', 'IP'), *rows]):
-        for column, value in enumerate(cells):
-            label = Gtk.Label(label=value, xalign=0.5, hexpand=True)
-            if row == 0:
-                label.add_css_class('heading')
-            grid.attach(label, column, row, 1, 1)
-
-    for row, (_, address) in enumerate(rows, start=1):
-        button = Gtk.Button(icon_name='edit-copy-symbolic', tooltip_text='Copiar IP')
-        button.add_css_class('flat')
-        button.connect('clicked', lambda widget, text=address: widget.get_clipboard().set(text))
-        grid.attach(button, 2, row, 1, 1)
-
-    scroll = Gtk.ScrolledWindow(
-        propagate_natural_width=True,
-        propagate_natural_height=True,
-        max_content_width=620,
-        max_content_height=280,
-    )
-    scroll.set_child(grid)
-    title = 'Virtualbox - VMs'
-    dialog = Adw.MessageDialog(heading=title, title=title, resizable=False)
-    dialog.set_extra_child(scroll)
-    # A scrollable child can otherwise be allocated its minimum height.
-    _, table_height, _, _ = grid.measure(Gtk.Orientation.VERTICAL, -1)
-    scroll.set_min_content_height(min(table_height, scroll.get_max_content_height()))
-    dialog.add_response('close', 'Close')
-    dialog.set_default_response('close')
-    dialog.set_close_response('close')
-    loop = GLib.MainLoop()
-    dialog.connect('response', lambda *_: loop.quit())
-    dialog.present()
-    loop.run()
-    return 0
-
-
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--gui', action='store_true', help='show a graphical list')
-    parser.add_argument('--json', action='store_true', help=argparse.SUPPRESS)
-    parser.add_argument('--panel-list', action='store_true', help=argparse.SUPPRESS)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--gui', action='store_true', help='open the Virtualbox window')
+    mode.add_argument('--adapter-json', action='store_true', help='print VM/adapter/IP objects')
+    mode.add_argument('--json', action='store_true', help='print legacy VM/IP pairs')
+    mode.add_argument('--panel-list', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
+
     if args.panel_list:
-        import sys
-        return show_panel_list(json.load(sys.stdin))
-    error_message = ''
-    try:
-        machines = MACHINE.findall(vbox('list', 'runningvms'))
-    except (subprocess.SubprocessError, OSError) as error:
-        details = getattr(error, 'stderr', None) or str(error)
-        error_message = 'No pude consultar VirtualBox.\n' + details.strip()
-        machines = []
-
-    rows = []
-    for name, machine_id in machines:
         try:
-            ips = addresses(machine_id) or 'Sin IP publicada por Guest Additions'
-        except (subprocess.SubprocessError, OSError):
-            ips = 'No se pudo consultar esta VM'
-        rows.append((name, ips))
-
-    if not rows:
-        rows = recorded_running_guests()
-    if args.json:
-        detected = [(name, label) for name, label in rows
-                    if format_addresses(label.split(' (', 1)[0].split(', '))]
-        print(json.dumps(detected))
-        return 0
-    if not rows:
-        message = error_message or 'VirtualBox no informó de máquinas encendidas.'
-        if args.gui:
-            show('--error' if error_message else '--info', message)
-        else:
-            print(message)
-        return int(bool(error_message))
-    elif args.gui:
-        subprocess.run([
-            'zenity', '--list', '--title=VirtualBox · IP de las VM',
-            '--width=740', '--height=360', '--column=Máquina virtual', '--column=Direcciones IP',
-            '--', *(value for row in rows for value in row),
-        ])
+            rows, notice = panel_snapshot(json.load(sys.stdin))
+        except (ValueError, TypeError) as error:
+            print(f'Virtualbox IPs: {error}', file=sys.stderr)
+            return 1
     else:
-        for name, ips in rows:
-            print(f'{name}\t{ips}')
-    return 0
+        snapshot = collect_snapshot()
+        rows, notice = list(snapshot.rows), '\n'.join(snapshot.warnings)
+        if notice:
+            print(notice, file=sys.stderr)
+        if args.adapter_json:
+            print(json.dumps([row.to_dict() for row in rows]))
+            return int(bool(notice) and not rows)
+        if args.json:
+            print(json.dumps(legacy_rows(rows)))
+            return int(bool(notice) and not rows)
+        if not args.gui:
+            for row in rows:
+                print(f'{row.vm}\t{row.adapter}\t{row.ip}')
+            if not rows:
+                print(notice or 'No connected VM adapters with a published IP address.')
+            return int(bool(notice) and not rows)
+
+    from vbox_window import show_window
+    return show_window(rows, notice)
 
 
 if __name__ == '__main__':
