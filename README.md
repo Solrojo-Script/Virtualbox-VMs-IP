@@ -8,6 +8,22 @@ A GNOME Shell extension that shows the addresses of running VirtualBox VMs in th
 - Each IP has its own copy button. After copying, the button shows a **green check for 1.5 seconds**, then returns to the copy icon. Clicking again restarts this confirmation.
 - Close the window with **Close** or **Esc**. The table sizes itself to its contents and scrolls when needed.
 
+## Screenshots
+
+These screenshots use an example VM and documentation-only IP addresses.
+
+### Adapter list
+
+Each connected adapter and IP address appears in its own row.
+
+![Virtualbox window showing two VM adapters and their IP addresses](docs/screenshots/adapter-list.png)
+
+### Copy confirmation
+
+After copying an IP, the copy button briefly changes to a green check.
+
+![Green check confirming that an IP address was copied](docs/screenshots/copy-confirmation.png)
+
 ## How adapters are detected
 
 Guest Additions report all guest network interfaces, which can include Docker bridges. Their enumeration order is **not** the order of the adapters in VirtualBox settings. The extension therefore does not identify a NIC by its guest-property index, interface name, or subnet.
